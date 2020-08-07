@@ -4,7 +4,10 @@
 
 
 *Run managed code before Unity does!*
-*This is a fork of UnityDoorstop that enables loading native code as well*
+
+*This is a small fork of UnityDoorstop that enables loading a dynamic libary with native code as well. Nothing else changed.*
+*Be aware that the native code is loaded when mono is initialized, just like the managed code.*
+*It loads the library defined by the targetNative config variable*
 
 # Unity Doorstop
 

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 
 #ifdef _VERBOSE
@@ -10,7 +10,7 @@ inline void init_logger()
 {
 	wsprintfA(buffer, "doorstop_%lx.log", GetTickCount64());
 	log_handle = CreateFileA(buffer, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
-	                         NULL);
+		NULL);
 }
 
 inline void free_logger()

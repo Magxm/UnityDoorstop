@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <windows.h>
 #include <shellapi.h>
@@ -7,11 +7,13 @@
 
 #define CONFIG_NAME L"doorstop_config.ini"
 #define DEFAULT_TARGET_ASSEMBLY L"Doorstop.dll"
+#define DEFAULT_TARGET_NATIVE L"DoorstopNative.dll"
 #define EXE_EXTENSION_LENGTH 4
 
 BOOL enabled = FALSE;
 BOOL redirect_output_log = FALSE;
-wchar_t *target_assembly = NULL;
+wchar_t* target_assembly = NULL;
+wchar_t* target_native = NULL;
 
 #define STR_EQUAL(str1, str2) (lstrcmpiW(str1, str2) == 0)
 
@@ -21,7 +23,7 @@ inline void init_config_file()
 		return;
 
 	const size_t len = GetFullPathNameW(CONFIG_NAME, 0, NULL, NULL);
-	wchar_t *configPath = memalloc(sizeof(wchar_t) * len);
+	wchar_t* configPath = memalloc(sizeof(wchar_t) * len);
 	GetFullPathNameW(CONFIG_NAME, len, configPath, NULL);
 
 	wchar_t enabledString[256] = L"true";
@@ -40,10 +42,23 @@ inline void init_config_file()
 	else if (STR_EQUAL(enabledString, L"false"))
 		redirect_output_log = FALSE;
 
-	wchar_t *tmp = get_ini_entry(configPath, L"UnityDoorstop", L"targetAssembly", DEFAULT_TARGET_ASSEMBLY);
+	wchar_t* tmp = get_ini_entry(configPath, L"UnityDoorstop", L"targetAssembly", DEFAULT_TARGET_ASSEMBLY);
 	target_assembly = get_full_path(tmp, wcslen(tmp));
 
 	LOG("Config; Target assembly: %S\n", target_assembly);
+
+	wchar_t* tmp2 = get_ini_entry(configPath, L"UnityDoorstop", L"targetNative", DEFAULT_TARGET_NATIVE);
+	if (target_native[0] != L'\0')
+	{
+		target_native = get_full_path(tmp2, wcslen(tmp2));
+		LOG("Config; Target native: %S\n", target_native);
+	}
+	else
+	{
+		target_native = NULL;
+	}
+
+
 
 	memfree(tmp);
 	memfree(configPath);
@@ -51,18 +66,18 @@ inline void init_config_file()
 
 inline void init_cmd_args()
 {
-	wchar_t *args = GetCommandLineW();
+	wchar_t* args = GetCommandLineW();
 	int argc = 0;
-	wchar_t **argv = CommandLineToArgvW(args, &argc);
+	wchar_t** argv = CommandLineToArgvW(args, &argc);
 
 #define IS_ARGUMENT(arg_name) STR_EQUAL(arg, arg_name) && i < argc
 
 	for (int i = 0; i < argc; i++)
 	{
-		wchar_t *arg = argv[i];
+		wchar_t* arg = argv[i];
 		if (IS_ARGUMENT(L"--doorstop-enable"))
 		{
-			wchar_t *par = argv[++i];
+			wchar_t* par = argv[++i];
 
 			if (STR_EQUAL(par, L"true"))
 				enabled = TRUE;
@@ -71,7 +86,7 @@ inline void init_cmd_args()
 		}
 		else if (IS_ARGUMENT(L"--redirect-output-log"))
 		{
-			wchar_t *par = argv[++i];
+			wchar_t* par = argv[++i];
 
 			if (STR_EQUAL(par, L"true"))
 				redirect_output_log = TRUE;
@@ -86,6 +101,16 @@ inline void init_cmd_args()
 			target_assembly = memalloc(sizeof(wchar_t) * len);
 			lstrcpynW(target_assembly, argv[++i], len);
 			LOG("Args; Target assembly: %S\n", target_assembly);
+		}
+		else if (IS_ARGUMENT(L"--doorstop-target-native"))
+		{
+			if (target_native != NULL)
+				memfree(target_native);
+
+			const size_t len = wcslen(argv[i + 1]) + 1;
+			target_native = memalloc(sizeof(wchar_t) * len);
+			lstrcpynW(target_native, argv[++i], len);
+			LOG("Args; Target assembly: %S\n", target_native);
 		}
 	}
 
@@ -112,4 +137,7 @@ inline void cleanup_config()
 {
 	if (target_assembly != NULL)
 		memfree(target_assembly);
+
+	if (target_native != NULL)
+		memfree(target_native);
 }

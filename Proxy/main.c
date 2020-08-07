@@ -1,22 +1,22 @@
-/*
+﻿/*
  * main.cpp -- The main "entry point" and the main logic of the DLL.
  *
  * Here, we do the main magic of the whole DLL
- * 
+ *
  * The main procedure goes as follows:
  * 0. Initialize the proxy functions
  * 1. Read configuration (whether to enable Doorstop, what .NET assembly to execute, etc)
  * 2. Find the Unity player module (it's either the game EXE or UnityPlayer.dll)
  * 3. Install IAT hook to GetProcAddress into the Unity player
  * 4. When Unity tries to resolve mono_jit_init_version, grab the mono module and return the address to init_doorstop
- * 
+ *
  * Then, the loader waits until Unity creates its root domain for mono (which is done with mono_jit_init_version).
- * 
+ *
  * Inside mono_jit_init_version hook (i.e. init_doorstop):
  * 1. Call the original mono_jit_init_version to get the Unity root domain
  * 2. Load the .NET assembly we want to run into the root domain
  * 3. Find Main() method inside the target assembly and invoke it
- * 
+ *
  * Rest of the work is done on the managed side.
  *
  */
@@ -30,10 +30,10 @@
 #include "assert_util.h"
 #include "proxy.h"
 
-// The hook for mono_jit_init_version
-// We use this since it will always be called once to initialize Mono's JIT
-void *init_doorstop(const char *root_domain_name, const char *runtime_version)
-{	
+ // The hook for mono_jit_init_version
+ // We use this since it will always be called once to initialize Mono's JIT
+void* init_doorstop(const char* root_domain_name, const char* runtime_version)
+{
 	LOG("Starting mono domain\n");
 
 #if _VERBOSE
@@ -45,7 +45,7 @@ void *init_doorstop(const char *root_domain_name, const char *runtime_version)
 #endif
 
 	// Call the original mono_jit_init_version to initialize the Unity Root Domain
-	void *domain = mono_jit_init_version(root_domain_name, runtime_version);
+	void* domain = mono_jit_init_version(root_domain_name, runtime_version);
 
 	if (GetEnvironmentVariableW(L"DOORSTOP_INITIALIZED", NULL, 0) != 0)
 	{
@@ -62,13 +62,13 @@ void *init_doorstop(const char *root_domain_name, const char *runtime_version)
 	{
 #define CONFIG_EXT L".config"
 
-		wchar_t *exe_path = NULL;
+		wchar_t* exe_path = NULL;
 		const size_t real_len = get_module_path(NULL, &exe_path, NULL, STR_LEN(CONFIG_EXT));
-		wchar_t *folder_name = get_folder_name(exe_path, real_len, TRUE);
+		wchar_t* folder_name = get_folder_name(exe_path, real_len, TRUE);
 		wmemcpy(exe_path + real_len, CONFIG_EXT, STR_LEN(CONFIG_EXT));
 
-		char *exe_path_n = narrow(exe_path);
-		char *folder_path_n = narrow(folder_name);
+		char* exe_path_n = narrow(exe_path);
+		char* folder_path_n = narrow(folder_name);
 
 		LOG("Setting config paths: base dir: %s; config path: %s\n", folder_path_n, exe_path_n);
 
@@ -82,28 +82,36 @@ void *init_doorstop(const char *root_domain_name, const char *runtime_version)
 #undef CONFIG_EXT
 	}
 
+
+	if (target_native != NULL && target_native[0] != L'\0')
+	{
+		LOG("Loading Native Code: %s\n", target_assembly);
+		//Loading Native Code
+		LoadLibrary(target_native);
+	}
+
 	// Set target assembly as an environment variable for use in the managed world
 	SetEnvironmentVariableW(L"DOORSTOP_INVOKE_DLL_PATH", target_assembly);
 
 	// Set path to managed folder dir as an env variable
-	char *assembly_dir = mono_assembly_getrootdir();
+	char* assembly_dir = mono_assembly_getrootdir();
 	LOG("Assembly dir: %s\n", assembly_dir);
 
-	wchar_t *wide_assembly_dir = widen(assembly_dir);
+	wchar_t* wide_assembly_dir = widen(assembly_dir);
 	SetEnvironmentVariableW(L"DOORSTOP_MANAGED_FOLDER_DIR", wide_assembly_dir);
 	memfree(wide_assembly_dir);
 
 	size_t len = WideCharToMultiByte(CP_UTF8, 0, target_assembly, -1, NULL, 0, NULL, NULL);
-	char *dll_path = memalloc(sizeof(char) * len);
+	char* dll_path = memalloc(sizeof(char) * len);
 	WideCharToMultiByte(CP_UTF8, 0, target_assembly, -1, dll_path, len, NULL, NULL);
 
-	wchar_t *app_path = NULL;
+	wchar_t* app_path = NULL;
 	get_module_path(NULL, &app_path, NULL, 0);
 	SetEnvironmentVariableW(L"DOORSTOP_PROCESS_PATH", app_path);
-	
+
 	LOG("Loading assembly: %s\n", dll_path);
 	// Load our custom assembly into the domain
-	void *assembly = mono_domain_assembly_open(domain, dll_path);
+	void* assembly = mono_domain_assembly_open(domain, dll_path);
 
 	if (assembly == NULL)
 		LOG("Failed to load assembly\n");
@@ -112,26 +120,26 @@ void *init_doorstop(const char *root_domain_name, const char *runtime_version)
 	ASSERT_SOFT(assembly != NULL, domain);
 
 	// Get assembly's image that contains CIL code
-	void *image = mono_assembly_get_image(assembly);
+	void* image = mono_assembly_get_image(assembly);
 	ASSERT_SOFT(image != NULL, domain);
 
 	// Create a descriptor for a random Main method
-	void *desc = mono_method_desc_new("*:Main", FALSE);
+	void* desc = mono_method_desc_new("*:Main", FALSE);
 
 	// Find the first possible Main method in the assembly
-	void *method = mono_method_desc_search_in_image(desc, image);
+	void* method = mono_method_desc_search_in_image(desc, image);
 	ASSERT_SOFT(method != NULL, domain);
 
-	void *signature = mono_method_signature(method);
+	void* signature = mono_method_signature(method);
 
 	// Get the number of parameters in the signature
 	UINT32 params = mono_signature_get_param_count(signature);
 
-	void **args = NULL;
+	void** args = NULL;
 	if (params == 1)
 	{
 		// If there is a parameter, it's most likely a string[].
-		void *args_array = mono_array_new(domain, mono_get_string_class(), 2);
+		void* args_array = mono_array_new(domain, mono_get_string_class(), 2);
 		args = memalloc(sizeof(void*) * 1);
 		args[0] = args_array;
 	}
@@ -159,7 +167,7 @@ void *init_doorstop(const char *root_domain_name, const char *runtime_version)
 
 BOOL initialized = FALSE;
 
-void * WINAPI get_proc_address_detour(HMODULE module, char const *name)
+void* WINAPI get_proc_address_detour(HMODULE module, char const* name)
 {
 	if (lstrcmpA(name, "mono_jit_init_version") == 0)
 	{
@@ -170,7 +178,7 @@ void * WINAPI get_proc_address_detour(HMODULE module, char const *name)
 			load_mono_functions(module);
 			LOG("Loaded all mono.dll functions\n");
 		}
-		return (void*)& init_doorstop;
+		return (void*)&init_doorstop;
 	}
 
 	return (void*)GetProcAddress(module, name);
@@ -186,8 +194,8 @@ BOOL WINAPI close_handle_hook(HANDLE handle)
 }
 
 
-wchar_t *new_cmdline_args = NULL;
-char *cmdline_args_narrow = NULL;
+wchar_t* new_cmdline_args = NULL;
+char* cmdline_args_narrow = NULL;
 
 LPWSTR WINAPI get_command_line_hook()
 {
@@ -218,14 +226,14 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 
 	hHeap = GetProcessHeap();
 
-	wchar_t *app_path = NULL;
+	wchar_t* app_path = NULL;
 	size_t app_path_len = get_module_path(NULL, &app_path, NULL, 0);
-	wchar_t *app_dir = get_folder_name(app_path, app_path_len, FALSE);
+	wchar_t* app_dir = get_folder_name(app_path, app_path_len, FALSE);
 	BOOL fixedCWD = FALSE;
 
-	wchar_t *working_dir = NULL;
+	wchar_t* working_dir = NULL;
 	get_working_dir(&working_dir);
-	
+
 	if (lstrcmpiW(app_dir, working_dir) != 0)
 	{
 		fixedCWD = TRUE;
@@ -241,7 +249,7 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 	LOG("Working dir: %S\n", working_dir);
 
 	if (fixedCWD)
-	LOG("WARNING: Working directory is not the same as app directory! Fixing working directory!\n");
+		LOG("WARNING: Working directory is not the same as app directory! Fixing working directory!\n");
 
 	stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
@@ -253,11 +261,11 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 	LOG("STDOUT handle path: %s\n", handlepath);
 #endif
 
-	wchar_t *dll_path = NULL;
+	wchar_t* dll_path = NULL;
 	size_t dll_path_len = get_module_path(hInstDll, &dll_path, NULL, 0);
 	LOG("DLL Path: %S\n", dll_path);
 
-	wchar_t *dll_name = get_file_name_no_ext(dll_path, dll_path_len);
+	wchar_t* dll_name = get_file_name_no_ext(dll_path, dll_path_len);
 	LOG("Doorstop DLL Name: %S\n", dll_name);
 
 	load_proxy(dll_name);
@@ -265,7 +273,7 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 
 	if (redirect_output_log)
 	{
-		wchar_t *cmd = GetCommandLineW();
+		wchar_t* cmd = GetCommandLineW();
 		size_t app_dir_len = wcslen(app_dir);
 		size_t cmd_len = wcslen(cmd);
 		size_t new_cmd_size = cmd_len + LOG_FILE_CMD_START_LEN + app_path_len + LOG_FILE_CMD_END_LEN + 1024;
@@ -275,7 +283,7 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 		wmemcpy(new_cmdline_args + cmd_len, LOG_FILE_CMD_START, LOG_FILE_CMD_START_LEN);
 		wmemcpy(new_cmdline_args + cmd_len + LOG_FILE_CMD_START_LEN - 1, app_dir, app_dir_len);
 		wmemcpy(new_cmdline_args + cmd_len + LOG_FILE_CMD_START_LEN + app_dir_len - 1, LOG_FILE_CMD_END,
-		        LOG_FILE_CMD_END_LEN);
+			LOG_FILE_CMD_END_LEN);
 		cmdline_args_narrow = narrow(new_cmdline_args);
 
 		LOG("Redirected output log!\n");
@@ -287,7 +295,7 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 		LOG("Could not find target assembly! Cannot enable!");
 		enabled = FALSE;
 	}
-	
+
 	// If the loader is disabled, don't inject anything.
 	if (enabled)
 	{
@@ -310,7 +318,7 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 			target_module != app_module && (
 				!iat_hook(target_module, "kernel32.dll", &GetCommandLineW, &get_command_line_hook) ||
 				!iat_hook(target_module, "kernel32.dll", &GetCommandLineA, &get_command_line_hook_narrow)
-			))
+				))
 		{
 			LOG("Failed to install IAT hook!\n");
 			free_logger();

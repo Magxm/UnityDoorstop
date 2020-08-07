@@ -2,12 +2,9 @@
    <img src="https://raw.githubusercontent.com/NeighTools/UnityDoorstop/master/docs/logo_sm.png"/>
 </p>
 
-[![Build Status](https://dev.azure.com/ghorsington/UnityDoorstop/_apis/build/status/NeighTools.UnityDoorstop?branchName=master)](https://dev.azure.com/ghorsington/UnityDoorstop/_build/latest?definitionId=1&branchName=master)
-![Github All Releases](https://img.shields.io/github/downloads/NeighTools/UnityDoorstop/total.svg)
-![GitHub release](https://img.shields.io/github/release/NeighTools/UnityDoorstop.svg)
-![license](https://img.shields.io/github/license/NeighTools/UnityDoorstop.svg)
 
 *Run managed code before Unity does!*
+*This is a fork of UnityDoorstop that enables loading native code as well*
 
 # Unity Doorstop
 

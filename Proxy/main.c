@@ -82,14 +82,6 @@ void* init_doorstop(const char* root_domain_name, const char* runtime_version)
 #undef CONFIG_EXT
 	}
 
-
-	if (target_native != NULL && target_native[0] != L'\0')
-	{
-		LOG("Loading Native Code: %s\n", target_assembly);
-		//Loading Native Code
-		LoadLibrary(target_native);
-	}
-
 	// Set target assembly as an environment variable for use in the managed world
 	SetEnvironmentVariableW(L"DOORSTOP_INVOKE_DLL_PATH", target_assembly);
 
@@ -244,6 +236,7 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 
 	LOG("Doorstop started!\n");
 
+
 	LOG("EXE Path: %S\n", app_path);
 	LOG("App dir: %S\n", app_dir);
 	LOG("Working dir: %S\n", working_dir);
@@ -308,6 +301,13 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved
 		{
 			LOG("No UnityPlayer.dll; using EXE as the hook target.");
 			target_module = app_module;
+		}
+
+		if (target_native != NULL && target_native[0] != L'\0')
+		{
+			LOG("Loading Native Code: %S\n", target_native);
+			//Loading Native Code
+			LoadLibraryW(target_native);
 		}
 
 		LOG("Installing IAT hook\n");

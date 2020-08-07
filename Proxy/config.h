@@ -48,7 +48,7 @@ inline void init_config_file()
 	LOG("Config; Target assembly: %S\n", target_assembly);
 
 	wchar_t* tmp2 = get_ini_entry(configPath, L"UnityDoorstop", L"targetNative", DEFAULT_TARGET_NATIVE);
-	if (target_native[0] != L'\0')
+	if (tmp2 != NULL && tmp2[0] != L'\0')
 	{
 		target_native = get_full_path(tmp2, wcslen(tmp2));
 		LOG("Config; Target native: %S\n", target_native);
@@ -57,7 +57,6 @@ inline void init_config_file()
 	{
 		target_native = NULL;
 	}
-
 
 
 	memfree(tmp);
